@@ -7,6 +7,7 @@ export interface Env {
   REQUIRE_EMAIL_OTP?: string;
   OTP_FROM_EMAIL?: string;
   OTP_FROM_NAME?: string;
+  ALLOW_DEV_OTP_RESPONSE?: string;
 }
 
 type TokenRecord = {
@@ -249,10 +250,21 @@ async function startEmailOtp(request: Request, env: Env): Promise<Response> {
   ).bind(otpId, email, await sha256(`${email}:${code}`), expiresAt).run();
 
   const sent = await sendOtpEmail(env, email, code);
+  const devResponse = !sent && devOtpResponseEnabled(env);
   await env.DB.prepare(
     `INSERT INTO audit_log (id, actor, action, resource_type, resource_id, metadata_json)
      VALUES (?, ?, 'auth.otp.started', 'email_otp', ?, ?)`
-  ).bind(id("audit"), email, otpId, JSON.stringify({ sent })).run();
+  ).bind(id("audit"), email, otpId, JSON.stringify({ sent, dev_response: devResponse })).run();
+
+  if (!sent && !devResponse) {
+    return json(
+      {
+        error: "email_delivery_unavailable",
+        message: "Email delivery is not configured for this deployment."
+      },
+      503
+    );
+  }
 
   const payload: Record<string, unknown> = {
     ok: true,
@@ -679,6 +691,10 @@ function randomOtp(): string {
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function devOtpResponseEnabled(env: Env): boolean {
+  return env.ALIF_ENV !== "production" && env.ALLOW_DEV_OTP_RESPONSE === "true";
 }
 
 async function sendOtpEmail(env: Env, email: string, code: string): Promise<boolean> {

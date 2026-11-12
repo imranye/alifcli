@@ -40,7 +40,18 @@ Add the binding and production vars to `wrangler.jsonc`:
 }
 ```
 
-Without an Email Sending binding, development OTP requests return the OTP in the API response. Do not run production with that fallback.
+Without an Email Sending binding, the Worker refuses OTP requests with `email_delivery_unavailable` and sends no code. A public deployment must use Email Sending.
+
+## Local Development OTP
+
+Local development can read the OTP from the API response. Put both values in `.dev.vars`:
+
+```bash
+ALIF_ENV="development"
+ALLOW_DEV_OTP_RESPONSE="true"
+```
+
+The fallback needs both values. The Worker never returns the OTP when `ALIF_ENV` is `production`. Do not set `ALLOW_DEV_OTP_RESPONSE` on a public deployment.
 
 ## Migrate And Deploy
 
