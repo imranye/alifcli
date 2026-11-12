@@ -21,6 +21,7 @@ OTP challenges:
 - are 6 digits
 - expire after 10 minutes
 - are stored hashed
+- return the code in the response only when a development deployment sets `ALLOW_DEV_OTP_RESPONSE=true`
 - allow a limited number of verification attempts
 
 ## Agent Automation Token
